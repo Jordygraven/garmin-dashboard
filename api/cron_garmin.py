@@ -9,6 +9,8 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from _garmin_sync import make_client_ctx, parse_days, parse_range, run_sync, yesterday_kl  # noqa: E402
+
 
 def authorized(header):
     secret = os.environ.get("CRON_SECRET")
@@ -32,14 +34,19 @@ class handler(BaseHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query)
         manual = qs.get("manual", ["0"])[0] == "1"
         backfill = qs.get("mode", [""])[0] == "backfill"
+        date_range = None
+        if backfill and ("from" in qs or "to" in qs):  # both given: days is ignored
+            try:
+                date_range = parse_range(qs.get("from", [""])[0], qs.get("to", [""])[0], yesterday_kl())
+            except ValueError as exc:
+                return self._send(400, {"ok": False, "error": str(exc)})
         try:
             import psycopg
             from _drop_rule import check_fitness_drop
-            from _garmin_sync import make_client_ctx, parse_days, run_sync
 
             with psycopg.connect(os.environ["GARMIN_WRITER_DB_URL"]) as conn:
                 with make_client_ctx() as client:
-                    result = run_sync(conn, client, backfill=backfill, days=parse_days(qs.get("days", [None])[0]))
+                    result = run_sync(conn, client, backfill=backfill, days=parse_days(qs.get("days", [None])[0]), date_range=date_range)
                 if result.get("ok") is False:  # rate limited: keep completed days, skip the drop check
                     return self._send(429, result)
                 # manual button runs the data pull only ("lane A")

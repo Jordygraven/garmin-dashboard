@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 
 BACKFILL_DAYS = 90  # cap
 DEFAULT_BACKFILL_DAYS = 14
+MAX_RANGE_DAYS = 30
 TOKEN_CACHE_DIR = "/tmp/garmin"
 KL = timezone(timedelta(hours=8))  # Asia/Kuala_Lumpur, no DST
 
@@ -110,6 +111,23 @@ def window(end, n):
     return end - timedelta(days=n - 1), end
 
 
+def parse_range(raw_from, raw_to, yesterday):
+    """Validate an explicit from/to range. Returns (start, end); raises ValueError with a plain message."""
+    if not (raw_from and raw_to):
+        raise ValueError("from and to must be given together")
+    try:
+        start, end = date.fromisoformat(raw_from), date.fromisoformat(raw_to)
+    except ValueError:
+        raise ValueError("from and to must be dates like YYYY-MM-DD") from None
+    if start > end:
+        raise ValueError("from must not be after to")
+    if end > yesterday:
+        raise ValueError(f"to must not be after yesterday ({yesterday.isoformat()})")
+    if (end - start).days + 1 > MAX_RANGE_DAYS:
+        raise ValueError(f"window must be {MAX_RANGE_DAYS} days or less")
+    return start, end
+
+
 def fetch_days(client, start, end):
     """Return ({iso_day: {col: value}} for completed days, stopped_day or None).
 
@@ -207,12 +225,15 @@ def make_client_ctx():
     return GarminPersonalApiClient(bearer_token=token.access_token)
 
 
-def run_sync(conn, client, backfill=False, days=DEFAULT_BACKFILL_DAYS):
+def run_sync(conn, client, backfill=False, days=DEFAULT_BACKFILL_DAYS, date_range=None):
     with conn.cursor() as cur:
         cur.execute("select count(*) from garmin.daily_official")
         empty = cur.fetchone()[0] == 0
-    n = days if backfill else (BACKFILL_DAYS if empty else 1)
-    start, end = window(yesterday_kl(), n)
+    if backfill and date_range:
+        start, end = date_range
+    else:
+        n = days if backfill else (BACKFILL_DAYS if empty else 1)
+        start, end = window(yesterday_kl(), n)
     rows, stopped = fetch_days(client, start, end)
     done = upsert_days(conn, rows)
     span = {"from": start.isoformat(), "to": end.isoformat()}

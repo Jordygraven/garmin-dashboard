@@ -119,3 +119,52 @@ def test_activities_429_reported_after_days_saved(monkeypatch):
 def test_ok_run(monkeypatch):
     result, _ = run(FakeClient(), 3, monkeypatch)
     assert result == {"from": "2026-10-24", "to": "2026-10-26", "days": 3, "activities": 0}
+
+
+YESTERDAY = date(2026, 10, 26)
+
+
+def test_range_valid():
+    assert g.parse_range("2026-08-31", "2026-09-29", YESTERDAY) == (date(2026, 8, 31), date(2026, 9, 29))
+    assert g.parse_range("2026-10-26", "2026-10-26", YESTERDAY) == (YESTERDAY, YESTERDAY)
+
+
+def _bad(a, b, msg):
+    try:
+        g.parse_range(a, b, YESTERDAY)
+    except ValueError as exc:
+        assert msg in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_range_from_after_to():
+    _bad("2026-09-10", "2026-09-01", "from must not be after to")
+
+
+def test_range_to_after_yesterday():
+    _bad("2026-10-20", "2026-10-27", "after yesterday")
+
+
+def test_range_over_30_days():
+    _bad("2026-08-31", "2026-09-30", "30 days or less")  # 31 days inclusive
+    assert g.parse_range("2026-08-31", "2026-09-29", YESTERDAY)  # 30 days is fine
+
+
+def test_range_incomplete_or_malformed():
+    _bad("2026-09-01", "", "together")
+    _bad("nope", "2026-09-02", "YYYY-MM-DD")
+
+
+def test_days_still_works_and_range_overrides_it(monkeypatch):
+    result, _ = run(FakeClient(), 3, monkeypatch)
+    assert (result["from"], result["to"]) == ("2026-10-24", "2026-10-26")
+    monkeypatch.setattr(g, "yesterday_kl", lambda: YESTERDAY)
+    r = g.run_sync(FakeConn(), FakeClient(), backfill=True, days=3, date_range=(date(2026, 9, 1), date(2026, 9, 2)))
+    assert (r["from"], r["to"], r["days"]) == ("2026-09-01", "2026-09-02", 2)
+
+
+def test_daily_run_ignores_range(monkeypatch):
+    monkeypatch.setattr(g, "yesterday_kl", lambda: YESTERDAY)
+    r = g.run_sync(FakeConn(), FakeClient(), backfill=False, date_range=(date(2026, 9, 1), date(2026, 9, 2)))
+    assert (r["from"], r["to"]) == ("2026-10-26", "2026-10-26")
