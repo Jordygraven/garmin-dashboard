@@ -26,10 +26,11 @@ export async function lastSynced(): Promise<Date | null> {
 
 export async function latestReadiness() {
   const { rows } = await pool.query(
-    "select score, level, read_at from garmin.readiness_reading order by read_at desc limit 1",
+    // read_at is timestamp without time zone holding Kuala Lumpur wall-clock time: take the text, never a Date
+    "select score, level, to_char(read_at, 'HH24:MI') as read_time from garmin.readiness_reading order by read_at desc limit 1",
   );
   const r = rows[0];
-  return r ? { score: num(r.score), level: (r.level as string) ?? null, read_at: r.read_at as Date } : null;
+  return r ? { score: num(r.score), level: (r.level as string) ?? null, read_time: r.read_time as string } : null;
 }
 
 export async function latestSnapshot() {

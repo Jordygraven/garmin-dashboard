@@ -29,3 +29,6 @@ export function levelOf(r: { level: string | null; score: number | null } | null
 }
 
 export const phraseFor = (l: Level | null) => (l ? PHRASES[l] : AWAITING);
+
+export const readinessLabel = (r: { score: number | null; read_time: string } | null) =>
+  r?.score != null ? `${r.score} at ${r.read_time}` : "–";

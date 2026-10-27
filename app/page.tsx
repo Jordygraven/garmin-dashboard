@@ -1,9 +1,9 @@
 import Spark from "@/components/Spark";
 import SyncButton from "@/components/SyncButton";
 import { changeOver } from "@/lib/drop";
-import { clock, dash, syncedLabel, todayHeader } from "@/lib/format";
+import { dash, syncedLabel, todayHeader } from "@/lib/format";
 import { ctlSeries, lastSynced, latestDaily, latestReadiness, latestSnapshot } from "@/lib/queries";
-import { levelOf, phraseFor, STEPS } from "@/lib/verdict";
+import { levelOf, phraseFor, readinessLabel, STEPS } from "@/lib/verdict";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +84,7 @@ export default async function Home() {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#9aa8a0", padding: "0 4px" }}>
         <span>VO2 max <span style={{ color: "#eef3ef" }}>{dash(snap?.vo2)}</span></span>
-        <span>Readiness <span style={{ color: "#eef3ef" }}>{readiness?.score != null ? `${readiness.score} at ${clock(readiness.read_at)}` : "–"}</span></span>
+        <span>Readiness <span style={{ color: "#eef3ef" }}>{readinessLabel(readiness)}</span></span>
       </div>
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
         <SyncButton />
