@@ -32,6 +32,18 @@ mac/.venv/bin/python mac/garmin_sync.py; echo "exit=$?"
 Exit codes: `0` ok, `1` a call, login, keychain or database step failed, `2` Garmin rate limit (HTTP 429).
 On a 429 the run stops, logs the status and the day, and does not retry.
 
+## Backfill history
+
+```sh
+mac/.venv/bin/python mac/garmin_sync.py --from 2026-10-01 --to 2026-10-20
+```
+
+Fills `training_snapshot` only (VO2 max, training status, load), oldest day first. Readiness and race
+predictions are not backfilled because Garmin keeps no history for them. `--to` defaults to yesterday and
+the range is capped at 31 days. The quota is shared with the Vercel backfill, so run chunks of about 20 days.
+On a 429 the run stops, logs the day it reached and the `--from` to resume with, and exits with code 2.
+`--help` prints usage and exits without syncing.
+
 ## Schedule with launchd
 
 ```sh

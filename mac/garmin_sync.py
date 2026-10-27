@@ -6,6 +6,7 @@ status codes, never response bodies or secret values.
 """
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 from decimal import ROUND_HALF_UP, Decimal
@@ -30,6 +31,7 @@ CTL_DAYS, ATL_DAYS = 42, 7
 EWMA_HISTORY_DAYS = 180  # ~4 time constants of the 42-day average
 
 EXIT_OK, EXIT_FAILED, EXIT_RATE_LIMITED = 0, 1, 2
+MAX_RANGE_DAYS = 31  # the Garmin quota is shared with the Vercel backfill; run ~20-day chunks
 
 UPSERT_READINESS = (
     "insert into garmin.readiness_reading (day, read_at, score, level, feedback, sleep_score, hrv_weekly_avg, synced_at) "
@@ -293,6 +295,17 @@ def check_distances(conn):
     return goal <= set(DISTANCE_KEYS.values()), goal
 
 
+def sync_snapshot(client, conn, day, run):
+    """Fetch and upsert one training_snapshot row. Returns the load source (garmin|ewma|none)."""
+    d = day.isoformat()
+    vo2 = vo2_from_max_metrics(run.call(day, "max_metrics", lambda: client.get_max_metrics(d)))
+    status = training_status_fields(run.call(day, "training_status", lambda: client.get_training_status(d)), day)
+    snap, source = build_snapshot(day, vo2, status, conn)
+    if any(snap[c] is not None for c in SNAPSHOT_COLS):
+        execute(conn, UPSERT_SNAPSHOT, snap)
+    return source
+
+
 def sync_day(client, conn, day, run, races_ok=True, today=False):
     d = day.isoformat()
 
@@ -300,11 +313,7 @@ def sync_day(client, conn, day, run, races_ok=True, today=False):
     for row in readings:
         execute(conn, UPSERT_READINESS, row)
 
-    vo2 = vo2_from_max_metrics(run.call(day, "max_metrics", lambda: client.get_max_metrics(d)))
-    status = training_status_fields(run.call(day, "training_status", lambda: client.get_training_status(d)), day)
-    snap, source = build_snapshot(day, vo2, status, conn)
-    if any(snap[c] is not None for c in SNAPSHOT_COLS):
-        execute(conn, UPSERT_SNAPSHOT, snap)
+    source = sync_snapshot(client, conn, day, run)
 
     races = []
     if races_ok:
@@ -331,7 +340,67 @@ def sync(client, conn, today_date):
     return EXIT_FAILED if run.failures else EXIT_OK
 
 
-def main():
+def backfill(client, conn, start, end):
+    """Training snapshots only, oldest first. Garmin keeps no history for readiness or race predictions."""
+    run = Run()
+    done, day = 0, start
+    try:
+        while day <= end:
+            source = sync_snapshot(client, conn, day, run)
+            log(f"day={day.isoformat()} snapshot_source={source}")
+            done += 1
+            day += timedelta(days=1)
+    except RateLimited as rl:
+        last = (rl.day - timedelta(days=1)).isoformat() if done else "none"
+        log_err(
+            f"rate limited status=429 day={rl.day.isoformat()}; stopping, no retry. "
+            f"completed={done} last_completed={last}; resume with --from {rl.day.isoformat()} --to {end.isoformat()}"
+        )
+        return EXIT_RATE_LIMITED
+    log(f"backfill finished from={start.isoformat()} to={end.isoformat()} completed={done}")
+    return EXIT_FAILED if run.failures else EXIT_OK
+
+
+def default_window(today):
+    """No arguments: yesterday, then today."""
+    return today - timedelta(days=1), today
+
+
+def _date_arg(text):
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a date like YYYY-MM-DD") from None
+
+
+def parse_args(argv=None, today=None):
+    """Parse CLI args. `args.window` is None for the default run, else (start, end) for a snapshot backfill."""
+    ap = argparse.ArgumentParser(
+        prog="garmin_sync.py",
+        description="Sync Garmin readiness, VO2 max, training status, load and race predictions into Supabase. "
+        "With no arguments: yesterday, then today. With --from/--to: backfill training snapshots only.",
+    )
+    ap.add_argument("--from", dest="from_date", type=_date_arg, metavar="YYYY-MM-DD", help="first day to backfill")
+    ap.add_argument("--to", dest="to_date", type=_date_arg, metavar="YYYY-MM-DD", help="last day to backfill (default: yesterday)")
+    args = ap.parse_args(argv)
+    today = today or datetime.now(KL).date()
+    args.window = None
+    if args.to_date and not args.from_date:
+        ap.error("--to needs --from")
+    if args.from_date:
+        start, end = args.from_date, args.to_date or today - timedelta(days=1)
+        if start > end:
+            ap.error("--from must not be after --to")
+        if end > today:
+            ap.error("--to must not be after today")
+        if (end - start).days + 1 > MAX_RANGE_DAYS:
+            ap.error(f"range must be {MAX_RANGE_DAYS} days or less (run ~20-day chunks to stay inside the Garmin quota)")
+        args.window = (start, end)
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv)  # before Keychain and login, so --help and bad arguments exit here
     import psycopg
     from garminconnect import Garmin
 
@@ -352,6 +421,8 @@ def main():
     try:
         # prepare_threshold=None: Supabase transaction pooler has no server-side prepared statements
         with psycopg.connect(db_url, prepare_threshold=None, autocommit=True) as conn:
+            if args.window:
+                return backfill(client, conn, *args.window)
             return sync(client, conn, datetime.now(KL).date())
     except Exception as exc:
         log_err(f"database error exc={type(exc).__name__} sqlstate={getattr(exc, 'sqlstate', None)}")
