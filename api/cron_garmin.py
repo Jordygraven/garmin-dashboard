@@ -17,6 +17,24 @@ def authorized(header):
     return hmac.compare_digest(header or "", f"Bearer {secret}")
 
 
+def _db_error(exc):
+    msg = str(exc)
+    url = os.environ.get("GARMIN_WRITER_DB_URL") or ""
+    secrets = [url]
+    try:
+        secrets.append(urlparse(url).password or "")
+    except ValueError:
+        pass
+    for sec in secrets:
+        if sec:
+            msg = msg.replace(sec, "[redacted]")
+    return {
+        "exception_class": type(exc).__name__,
+        "sqlstate": getattr(exc, "sqlstate", None),
+        "message": msg,
+    }
+
+
 class handler(BaseHTTPRequestHandler):
     def _send(self, code, body):
         data = json.dumps(body).encode()
@@ -27,18 +45,12 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        # TEMP: remove after diagnosing; returns lengths only, never values
-        if parse_qs(urlparse(self.path).query).get("mode", [""])[0] == "diagnose":
-            header = self.headers.get("Authorization")
-            return self._send(200, {
-                "secret_length": len(os.environ.get("CRON_SECRET") or ""),
-                "header_length": len(header or ""),
-            })
         if not authorized(self.headers.get("Authorization")):
             return self._send(401, {"error": "unauthorized"})
         qs = parse_qs(urlparse(self.path).query)
         manual = qs.get("manual", ["0"])[0] == "1"
-        backfill = qs.get("mode", [""])[0] == "backfill"
+        mode = qs.get("mode", [""])[0]
+        backfill = mode in ("backfill", "diagnose_db")
         try:
             import psycopg
             from _drop_rule import check_fitness_drop
@@ -51,5 +63,7 @@ class handler(BaseHTTPRequestHandler):
                 result["alert"] = None if manual else check_fitness_drop(conn)
             self._send(200, {"ok": True, **result})
         except Exception as exc:
+            if mode == "diagnose_db":  # TEMP: remove after diagnosing
+                return self._send(500, _db_error(exc))
             print(f"cron failed: {type(exc).__name__}")
             self._send(500, {"ok": False, "error": type(exc).__name__})
