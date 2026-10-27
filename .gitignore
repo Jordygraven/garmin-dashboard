@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 activities_raw.json
 garmin_raw_*.json
 .DS_Store
+mac/.venv
