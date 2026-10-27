@@ -9,7 +9,7 @@ const nameOf = (label: string) => (/half/i.test(label) ? "Half marathon" : /mara
 const MARKER = 98.5; // % along the bar where the target sits
 
 export default async function Trends({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  const range = (await searchParams).range === "90" ? 90 : 28;
+  const range = (await searchParams).range === "90" ? 90 : 30;
   const [series, alert, snap, allGoals] = await Promise.all([ctlSeries(90), unresolvedDrop(), latestSnapshot(), goals()]);
   const cutoff = new Date(Date.now() + 8 * 3600_000 - range * 86_400_000).toISOString().slice(0, 10);
   const points = series.filter((p) => p.day >= cutoff);
@@ -33,7 +33,7 @@ export default async function Trends({ searchParams }: { searchParams: Promise<{
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 22, fontWeight: 600 }}><a href="/" style={{ textDecoration: "none" }}>←</a> Trends</div>
         <div style={{ display: "flex", gap: 6 }}>
-          {[28, 90].map((r) => (
+          {[30, 90].map((r) => (
             <a key={r} href={`/trends?range=${r}`} style={{
               fontSize: 13, textDecoration: "none", borderRadius: 999, padding: "6px 12px",
               border: "1px solid #2a3530", color: r === range ? "#eef3ef" : "#9aa8a0", background: r === range ? "#141a17" : "transparent",

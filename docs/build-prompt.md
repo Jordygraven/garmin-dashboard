@@ -62,7 +62,7 @@ Follow `docs/design/E-home.dc.html`. It's a finished visual spec, so match its l
 
 Follow `docs/design/F-trends.dc.html`.
 
-- Dated fitness chart over 28 days by default, with a selector for 90 days. Label the peak and the low. Shade plateaus, which are periods where the value changes by less than 2% over 5 days.
+- Dated fitness chart over 30 days by default, with a selector for 90 days. Label the peak and the low. Shade plateaus, which are periods where the value changes by less than 2% over 5 days.
 - 14-day drop check: show a warning banner if an unresolved `fitness_drop` alert exists. Otherwise show "No drop. Fitness is up/down X%".
 - Race projection: read the goal from `garmin.goal`. Show the latest `race_prediction` for the goal's distance. Half marathon is the default. The bar and gap turn red when behind target and green when on or ahead. Show the trend only when at least 14 days of predictions exist.
 - VO2 max and load ratio tiles.
