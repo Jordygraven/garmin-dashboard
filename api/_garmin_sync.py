@@ -82,7 +82,11 @@ def _safe(fn):
     try:
         return fn()
     except Exception as exc:  # one failed endpoint must not abort the day
-        print(f"garmin call failed: {type(exc).__name__}")
+        msg = str(exc)
+        url = getattr(exc, "url", None)
+        if url:  # HttpError embeds the request URL in its message
+            msg = msg.replace(str(url), "[url]")
+        print(f"garmin call failed: {type(exc).__name__} status={getattr(exc, 'status_code', None)} msg={msg[:120]!r}")
         return None
 
 
