@@ -1,0 +1,12 @@
+node_modules
+.next
+.env*.local
+.env
+.vercel
+__pycache__
+*.pyc
+next-env.d.ts
+tsconfig.tsbuildinfo
+activities_raw.json
+garmin_raw_*.json
+.DS_Store

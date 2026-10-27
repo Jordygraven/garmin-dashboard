@@ -1,0 +1,4 @@
+{
+  "crons": [{ "path": "/api/cron_garmin", "schedule": "0 23 * * *" }],
+  "functions": { "api/cron_garmin.py": { "maxDuration": 300 } }
+}
