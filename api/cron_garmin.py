@@ -27,6 +27,13 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        # TEMP: remove after diagnosing; returns lengths only, never values
+        if parse_qs(urlparse(self.path).query).get("mode", [""])[0] == "diagnose":
+            header = self.headers.get("Authorization")
+            return self._send(200, {
+                "secret_length": len(os.environ.get("CRON_SECRET") or ""),
+                "header_length": len(header or ""),
+            })
         if not authorized(self.headers.get("Authorization")):
             return self._send(401, {"error": "unauthorized"})
         qs = parse_qs(urlparse(self.path).query)
