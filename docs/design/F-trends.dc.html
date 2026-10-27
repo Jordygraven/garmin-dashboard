@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trends</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0b0f0d}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;padding:28px 22px 22px;display:flex;flex-direction:column;gap:20px;background:#0b0f0d;color:#eef3ef;font-family:system-ui,-apple-system,sans-serif;letter-spacing:-0.01em;overflow:hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:22px;font-weight:600">Trends</div>
+    <div style="font-size:13px;color:#9aa8a0;border:1px solid #2a3530;border-radius:999px;padding:6px 12px">28 days</div>
+  </div>
+  <div style="border-radius:20px;padding:20px;background:#141a17">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div style="font-size:12px;color:#7d8c83;letter-spacing:0.06em;text-transform:uppercase">Fitness</div>
+      <div style="font-size:13px;color:#8fd18a">Increasing</div>
+    </div>
+    <div style="font-size:34px;font-weight:600;margin-top:6px">586</div>
+    <svg viewBox="0 0 330 170" style="width:100%;height:170px;margin-top:10px">
+      <rect x="139.7" y="0" width="93.2" height="140" fill="#2f8f5b" opacity="0.10"/>
+      <text x="186" y="12" text-anchor="middle" font-size="10" fill="#7d8c83">Plateau</text>
+      <line x1="0" y1="140" x2="330" y2="140" stroke="#2a3530" stroke-width="1"/>
+      <line x1="0" y1="70" x2="330" y2="70" stroke="#222b26" stroke-width="1" stroke-dasharray="2 4"/>
+      <polyline points="0,130.7 46.6,92.7 93.1,58 139.7,33.3 186.3,22.7 232.9,14.7 279.4,24.7 326,9.3" fill="none" stroke="#2f8f5b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="326" cy="9.3" r="4" fill="#8fd18a"/>
+      <text x="318" y="0" text-anchor="end" font-size="10" fill="#8fd18a">Peak 586</text>
+      <circle cx="0" cy="130.7" r="3.5" fill="#d9534f"/>
+      <text x="6" y="150" font-size="10" fill="#d9534f">Low 404</text>
+      <text x="0" y="168" font-size="10" fill="#7d8c83">28 Sep</text>
+      <text x="93" y="168" text-anchor="middle" font-size="10" fill="#7d8c83">6 Oct</text>
+      <text x="186" y="168" text-anchor="middle" font-size="10" fill="#7d8c83">14 Oct</text>
+      <text x="279" y="168" text-anchor="middle" font-size="10" fill="#7d8c83">22 Oct</text>
+      <text x="326" y="168" text-anchor="end" font-size="10" fill="#7d8c83">26 Oct</text>
+    </svg>
+  </div>
+  <div style="border-radius:20px;padding:18px 20px;background:#141a17;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:12px;color:#7d8c83;letter-spacing:0.06em;text-transform:uppercase">14-day check</div>
+      <div style="font-size:16px;margin-top:6px">No drop. Fitness is up 8%.</div>
+    </div>
+    <div style="width:12px;height:12px;border-radius:6px;background:#2f8f5b"></div>
+  </div>
+  <div style="border-radius:20px;padding:20px;background:#141a17">
+    <div style="font-size:12px;color:#7d8c83;letter-spacing:0.06em;text-transform:uppercase">Half marathon · 1:30 target</div>
+    <div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">
+      <div style="font-size:30px;font-weight:600">1:31:09</div>
+      <div style="font-size:14px;color:#d9534f">+1:09</div>
+    </div>
+    <div style="position:relative;height:6px;border-radius:3px;background:#222b26;margin-top:16px">
+      <div style="position:absolute;left:0;top:0;height:6px;width:98%;border-radius:3px;background:#d9534f"></div>
+      <div style="position:absolute;left:98.5%;top:-4px;width:2px;height:14px;background:#eef3ef"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#7d8c83;margin-top:8px">
+      <span>Predicted today</span><span>Trend needs history</span>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;color:#9aa8a0;padding:0 4px">
+    <span>VO2 max <span style="color:#eef3ef">61</span></span>
+    <span>Load ratio <span style="color:#eef3ef">1.0</span></span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
