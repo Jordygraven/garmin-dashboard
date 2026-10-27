@@ -44,7 +44,7 @@ class handler(BaseHTTPRequestHandler):
             import psycopg
             from _drop_rule import check_fitness_drop
 
-            with psycopg.connect(os.environ["GARMIN_WRITER_DB_URL"]) as conn:
+            with psycopg.connect(os.environ["GARMIN_WRITER_DB_URL"], prepare_threshold=None) as conn:  # pooler: no prepared statements
                 with make_client_ctx() as client:
                     result = run_sync(conn, client, backfill=backfill, days=parse_days(qs.get("days", [None])[0]), date_range=date_range)
                 if result.get("ok") is False:  # rate limited: keep completed days, skip the drop check
