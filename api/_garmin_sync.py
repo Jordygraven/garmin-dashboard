@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 
 BACKFILL_DAYS = 90
+TOKEN_CACHE_DIR = "/tmp/garmin"
 KL = timezone(timedelta(hours=8))  # Asia/Kuala_Lumpur, no DST
 
 DAILY_COLS = [
@@ -164,7 +165,9 @@ def make_client_ctx():
     from garmin_personal_api import GarminPersonalApiClient
     from garmin_personal_api.auth import PersonalApiAuthenticator
 
-    with PersonalApiAuthenticator() as auth:
+    # the package defaults its token cache to ~/.config, which is read-only on Vercel
+    os.makedirs(TOKEN_CACHE_DIR, exist_ok=True)
+    with PersonalApiAuthenticator(bearer_token_cache_file=os.path.join(TOKEN_CACHE_DIR, "bearer-token.json")) as auth:
         token = auth.obtain_token(os.environ["GARMIN_PERSONAL_API_KEY"])
     return GarminPersonalApiClient(bearer_token=token.access_token)
 
