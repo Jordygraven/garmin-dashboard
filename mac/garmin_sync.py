@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from decimal import ROUND_HALF_UP, Decimal
 from datetime import date, datetime, timedelta, timezone
 
 KL = timezone(timedelta(hours=8))  # Asia/Kuala_Lumpur, no DST
@@ -16,8 +17,8 @@ KEYCHAIN_EMAIL = "garmin-email"
 KEYCHAIN_PASSWORD = "garmin-password"
 KEYCHAIN_WRITER_DB = "garmin-writer-db"
 
-# Garmin race-prediction key -> value stored in garmin.race_prediction.distance.
-# Must match the format already used in garmin.goal.distance; checked at startup.
+# Garmin race-prediction key -> value stored in garmin.race_prediction.distance (text).
+# half_marathon and marathon match the existing garmin.goal.distance values; checked at startup.
 DISTANCE_KEYS = {
     "time5K": "5k",
     "time10K": "10k",
@@ -110,6 +111,19 @@ class Run:
             return None
 
 
+# ---------- type coercion (schema: integer columns vs numeric columns) ----------
+
+def to_int(v):
+    """Round half up to int for integer columns; Garmin sends decimals like 379.6."""
+    if v is None:
+        return None
+    return int(Decimal(str(v)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def to_float(v):
+    return None if v is None else float(v)
+
+
 # ---------- extraction (pure) ----------
 
 def _as_list(data):
@@ -119,7 +133,7 @@ def _as_list(data):
 
 
 def parse_gmt(ts):
-    """Garmin GMT timestamps look like '2026-10-26T01:08:52.0'."""
+    """Garmin GMT timestamps look like '2026-10-26T01:08:52.0'. Returns an aware UTC datetime."""
     if not ts:
         return None
     try:
@@ -136,12 +150,13 @@ def readiness_rows(data, day):
             continue
         rows.append({
             "day": e.get("calendarDate") or day.isoformat(),
-            "read_at": read_at,
-            "score": e.get("score"),
+            # read_at is timestamp WITHOUT time zone: store Kuala Lumpur wall-clock time, naive
+            "read_at": read_at.astimezone(KL).replace(tzinfo=None),
+            "score": to_int(e.get("score")),
             "level": e.get("level"),
             "feedback": e.get("feedbackShort") or e.get("feedbackLong"),
-            "sleep_score": e.get("sleepScore"),
-            "hrv_weekly_avg": e.get("hrvWeeklyAverage"),
+            "sleep_score": to_int(e.get("sleepScore")),
+            "hrv_weekly_avg": to_int(e.get("hrvWeeklyAverage")),
         })
     return rows
 
@@ -190,7 +205,7 @@ def race_rows(data, day):
             continue
         for key, dist in DISTANCE_KEYS.items():
             if e.get(key) is not None:
-                rows.append({"day": d, "distance": dist, "seconds": round(e[key])})
+                rows.append({"day": d, "distance": dist, "seconds": to_int(e[key])})
     return rows
 
 
@@ -227,29 +242,42 @@ def daily_loads(conn, day):
 # ---------- sync ----------
 
 def build_snapshot(day, vo2, status, conn):
-    """Returns (params, source). Garmin's own load values win; EWMA only when Garmin gave none."""
+    """Returns (params, source). Garmin's own load values win; EWMA only when Garmin gave none.
+
+    ctl, atl, tsb, acute_load, chronic_load, fitness_trend are integer columns; load_ratio and the
+    VO2 values are numeric and stay float.
+    """
     p = {c: None for c in SNAPSHOT_COLS}
     p["day"] = day.isoformat()
     p["vo2_max"], p["vo2_max_precise"] = vo2
     for k in ("vo2_max", "vo2_max_precise"):
         if status.get(k) is not None and p[k] is None:
             p[k] = status[k]
-    for k in ("training_status", "fitness_trend", "acute_load", "chronic_load"):
-        p[k] = status.get(k)
+    p["training_status"] = status.get("training_status")
+    p["fitness_trend"] = status.get("fitness_trend")
+    p["acute_load"], p["chronic_load"] = status.get("acute_load"), status.get("chronic_load")
 
+    source = "none"
     if p["acute_load"] is not None and p["chronic_load"] is not None:
         p["atl"], p["ctl"] = p["acute_load"], p["chronic_load"]
-        p["tsb"] = p["ctl"] - p["atl"]
-        p["load_ratio"] = status.get("garmin_ratio")
-        if p["load_ratio"] is None and p["ctl"]:
-            p["load_ratio"] = p["atl"] / p["ctl"]
-        return p, "garmin"
+        ratio = status.get("garmin_ratio")
+        if ratio is None and p["ctl"]:
+            ratio = p["atl"] / p["ctl"]
+        p["load_ratio"] = ratio
+        source = "garmin"
+    else:
+        fallback = ewma_load(daily_loads(conn, day), day)
+        if fallback:
+            p.update(fallback)
+            source = "ewma"
 
-    fallback = ewma_load(daily_loads(conn, day), day)
-    if fallback:
-        p.update(fallback)
-        return p, "ewma"
-    return p, "none"
+    for k in ("ctl", "atl", "acute_load", "chronic_load", "fitness_trend"):
+        p[k] = to_int(p[k])
+    if p["ctl"] is not None and p["atl"] is not None:
+        p["tsb"] = p["ctl"] - p["atl"]  # from the rounded values, so the three columns agree
+    for k in ("load_ratio", "vo2_max", "vo2_max_precise"):
+        p[k] = to_float(p[k])
+    return p, source
 
 
 def execute(conn, sql, params):
