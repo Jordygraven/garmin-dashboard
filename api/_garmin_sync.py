@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 
-BACKFILL_DAYS = 90
+BACKFILL_DAYS = 90  # cap
+DEFAULT_BACKFILL_DAYS = 14
 TOKEN_CACHE_DIR = "/tmp/garmin"
 KL = timezone(timedelta(hours=8))  # Asia/Kuala_Lumpur, no DST
 
@@ -78,6 +78,10 @@ def map_activity(a):
     }
 
 
+class RateLimited(Exception):
+    """Garmin answered HTTP 429; the run stops and is not retried."""
+
+
 def _safe(fn):
     try:
         return fn()
@@ -86,44 +90,71 @@ def _safe(fn):
         url = getattr(exc, "url", None)
         if url:  # HttpError embeds the request URL in its message
             msg = msg.replace(str(url), "[url]")
-        print(f"garmin call failed: {type(exc).__name__} status={getattr(exc, 'status_code', None)} msg={msg[:120]!r}")
+        status = getattr(exc, "status_code", None)
+        print(f"garmin call failed: {type(exc).__name__} status={status} msg={msg[:120]!r}")
+        if status == 429:
+            raise RateLimited() from None
         return None
 
 
+def parse_days(raw):
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_BACKFILL_DAYS
+    return max(1, min(n, BACKFILL_DAYS))
+
+
+def window(end, n):
+    """Last n days ending on `end` (inclusive)."""
+    return end - timedelta(days=n - 1), end
+
+
 def fetch_days(client, start, end):
-    """Return {iso_day: {col: value}} for start..end inclusive."""
+    """Return ({iso_day: {col: value}} for completed days, stopped_day or None).
+
+    Days run in order, one at a time. A 429 stops the run at that day; the
+    stopped day is not included in the result.
+    """
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     rows = {d.isoformat(): {} for d in days}
     s, e = start.isoformat(), end.isoformat()
 
-    for item in _safe(lambda: client.get_daily_body_battery(s, e)) or []:
-        if item.get("date") in rows:
-            rows[item["date"]].update(map_body_battery(item))
-    for item in _safe(lambda: client.get_daily_stress(s, e)) or []:
-        if item.get("calendarDate") in rows:
-            rows[item["calendarDate"]].update(map_stress(item))
+    try:
+        for item in _safe(lambda: client.get_daily_body_battery(s, e)) or []:
+            if item.get("date") in rows:
+                rows[item["date"]].update(map_body_battery(item))
+        for item in _safe(lambda: client.get_daily_stress(s, e)) or []:
+            if item.get("calendarDate") in rows:
+                rows[item["calendarDate"]].update(map_stress(item))
+    except RateLimited:
+        return {}, s
 
-    def per_day(d):
+    done = {}
+    for d in days:
         iso = d.isoformat()
         out = {}
-        for fn, mapper in (
-            (client.get_daily_sleep, map_sleep),
-            (client.get_daily_hrv, map_hrv),
-            (client.get_daily_heart_rate, map_heart_rate),
-        ):
-            data = _safe(lambda: fn(iso))
-            if data:
-                out.update(mapper(data))
-        return iso, out
+        try:
+            for fn, mapper in (
+                (client.get_daily_sleep, map_sleep),
+                (client.get_daily_hrv, map_hrv),
+                (client.get_daily_heart_rate, map_heart_rate),
+            ):
+                data = _safe(lambda: fn(iso))
+                if data:
+                    out.update(mapper(data))
+        except RateLimited:
+            return done, iso
+        rows[iso].update(out)
+        done[iso] = rows[iso]
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        for iso, out in pool.map(per_day, days):
-            rows[iso].update(out)
-
-    fa = _safe(lambda: client.get_fitness_age(e))
+    try:
+        fa = _safe(lambda: client.get_fitness_age(e))
+    except RateLimited:
+        return done, e
     if fa:
-        rows[e].update(map_fitness_age(fa))
-    return rows
+        done[e].update(map_fitness_age(fa))
+    return done, None
 
 
 def upsert_days(conn, rows):
@@ -176,13 +207,19 @@ def make_client_ctx():
     return GarminPersonalApiClient(bearer_token=token.access_token)
 
 
-def run_sync(conn, client, backfill=False):
-    end = yesterday_kl()
+def run_sync(conn, client, backfill=False, days=DEFAULT_BACKFILL_DAYS):
     with conn.cursor() as cur:
         cur.execute("select count(*) from garmin.daily_official")
         empty = cur.fetchone()[0] == 0
-    start = end - timedelta(days=BACKFILL_DAYS - 1) if (backfill or empty) else end
-    rows = fetch_days(client, start, end)
-    days = upsert_days(conn, rows)
-    acts = upsert_activities(conn, fetch_activities(client, start, end))
-    return {"from": start.isoformat(), "to": end.isoformat(), "days": days, "activities": acts}
+    n = days if backfill else (BACKFILL_DAYS if empty else 1)
+    start, end = window(yesterday_kl(), n)
+    rows, stopped = fetch_days(client, start, end)
+    done = upsert_days(conn, rows)
+    span = {"from": start.isoformat(), "to": end.isoformat()}
+    if stopped:
+        return {"ok": False, "reason": "rate_limited", "stopped_on": stopped, "days_completed": len(rows), **span}
+    try:
+        acts = upsert_activities(conn, fetch_activities(client, start, end))
+    except RateLimited:
+        return {"ok": False, "reason": "rate_limited", "stopped_on": "activities", "days_completed": len(rows), **span}
+    return {**span, "days": done, "activities": acts}

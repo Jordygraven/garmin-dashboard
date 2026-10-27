@@ -35,11 +35,13 @@ class handler(BaseHTTPRequestHandler):
         try:
             import psycopg
             from _drop_rule import check_fitness_drop
-            from _garmin_sync import make_client_ctx, run_sync
+            from _garmin_sync import make_client_ctx, parse_days, run_sync
 
             with psycopg.connect(os.environ["GARMIN_WRITER_DB_URL"]) as conn:
                 with make_client_ctx() as client:
-                    result = run_sync(conn, client, backfill=backfill)
+                    result = run_sync(conn, client, backfill=backfill, days=parse_days(qs.get("days", [None])[0]))
+                if result.get("ok") is False:  # rate limited: keep completed days, skip the drop check
+                    return self._send(429, result)
                 # manual button runs the data pull only ("lane A")
                 result["alert"] = None if manual else check_fitness_drop(conn)
             self._send(200, {"ok": True, **result})
