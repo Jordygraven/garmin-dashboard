@@ -11,5 +11,5 @@ export function proxy(req: NextRequest) {
 
 export const config = {
   // /login, /api/login and the cron (own bearer auth) stay public
-  matcher: ["/((?!login|api/login|api/cron_garmin|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!login|api/login|api/cron_garmin|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest).*)"],
 };
