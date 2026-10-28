@@ -3,17 +3,17 @@ import SyncButton from "@/components/SyncButton";
 import { changeOver, trendLabel } from "@/lib/drop";
 import { dash, syncedLabel, todayHeader } from "@/lib/format";
 import { lastSynced, latestDaily, latestReadiness, latestSnapshot, metricSeries } from "@/lib/queries";
-import type { MetricKey } from "@/lib/metricSource";
+import type { MetricKey, SourceKey } from "@/lib/metricSource";
 import { levelOf, phraseFor, readinessLabel, STEPS } from "@/lib/verdict";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const keys: MetricKey[] = ["readiness", "fitness", "bodyBattery", "restingHr", "stress", "sleep", "hrv", "fitnessAge", "vo2"];
+  const keys: SourceKey[] = ["readiness", "fitness", "bodyBattery", "restingHr", "stress", "sleep", "hrv", "fitnessAge", "vo2", "bodyBatteryDrained"];
   const [daily, synced, readiness, snap, ...all] = await Promise.all([
     latestDaily(), lastSynced(), latestReadiness(), latestSnapshot(), ...keys.map((k) => metricSeries(k)),
   ]);
-  const series = Object.fromEntries(keys.map((k, i) => [k, all[i]])) as Record<MetricKey, (typeof all)[number]>;
+  const series = Object.fromEntries(keys.map((k, i) => [k, all[i]])) as Record<SourceKey, (typeof all)[number]>;
   const level = levelOf(readiness);
   const [head, sub] = phraseFor(level);
   const accent = STEPS.find((s) => s.key === level)?.color ?? "#2a3530";
@@ -21,7 +21,7 @@ export default async function Home() {
   const trend = trendLabel(change);
   const last = series.fitness[series.fitness.length - 1];
   const bb = daily?.bb_charged != null || daily?.bb_drained != null;
-  const tile = (key: MetricKey, label: string, value: string, sub?: string): Metric => ({ key, label, value, sub, series: series[key] });
+  const tile = (key: MetricKey, label: string, value: string, sub?: string): Metric => ({ key, label, value, sub, series: series[key], drained: key === "bodyBattery" ? series.bodyBatteryDrained : undefined });
   const tiles = [
     tile("readiness", "Training readiness", readinessLabel(readiness)),
     tile("fitness", "Fitness", last ? String(Math.round(last.value)) : "–",
@@ -61,7 +61,7 @@ export default async function Home() {
       <HomeMetrics headline={headline} tiles={tiles} />
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
         <SyncButton />
-        <a href="/trends" style={{ textAlign: "center", fontSize: 14, color: "#9aa8a0", textDecoration: "none" }}>Trends →</a>
+        <a href="/goals" style={{ textAlign: "center", fontSize: 14, color: "#9aa8a0", textDecoration: "none" }}>Goals →</a>
       </div>
     </main>
   );

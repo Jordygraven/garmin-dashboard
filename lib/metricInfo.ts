@@ -1,3 +1,4 @@
+import type { LoadZone } from "./loadRatio";
 import type { MetricKey } from "./metricSource";
 
 /** Modal title and explanation per metric. Wording lives here for review. */
@@ -16,7 +17,7 @@ export const METRIC_INFO: Record<MetricKey, { title: string; text: string }> = {
   },
   bodyBattery: {
     title: "Body battery",
-    text: "Garmin's energy reserve from 0 to 100. Charged is how much you gained, mostly from sleep and rest. Drained is how much you spent through activity and stress. The chart shows charged.",
+    text: "Garmin's energy reserve from 0 to 100. Green bars are charged: what you gained, mostly from sleep and rest. Red bars are drained: what you spent through activity and stress. Net for the day is charged minus drained.",
   },
   restingHr: {
     title: "Resting HR",
@@ -38,4 +39,16 @@ export const METRIC_INFO: Record<MetricKey, { title: string; text: string }> = {
     title: "Fitness age",
     text: "The age Garmin estimates your body matches in fitness, based on VO2 max, resting heart rate and body composition. Lower than your real age is good.",
   },
+};
+
+/** Goals page text. */
+export const GOAL_INFO = {
+  halfMarathon: "Garmin's predicted half marathon time, built from your recent training. The bar shows how far it has moved from the first prediction toward your target.",
+  loadRatio: "Acute load (last 7 days) divided by chronic load (about 4 weeks). It shows whether recent training is lighter or heavier than your usual.",
+};
+
+export const LOAD_ZONE_INFO: Record<LoadZone, { range: string; text: string }> = {
+  Low: { range: "Below 0.8", text: "Your recent load is lower than usual. Fine during a taper. If it stays low, add easy sessions in small steps." },
+  Good: { range: "0.8 to 1.3", text: "You're in the usual range. Keep the current pattern." },
+  High: { range: "Above 1.3", text: "Your recent load is high. Reduce the next session's intensity or length, and take an easy day. If you have pain, see a physio." },
 };

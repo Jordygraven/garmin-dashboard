@@ -1,5 +1,5 @@
 import { pool } from "./db";
-import { metricSql, type MetricKey } from "./metricSource";
+import { metricSql, type SourceKey } from "./metricSource";
 import type { Point } from "./plateau";
 
 const D = (col: string) => `to_char(${col}, 'YYYY-MM-DD')`;
@@ -73,8 +73,15 @@ export async function halfMarathon() {
   return { start: Number(r.start), current: Number(r.current), target: Number(r.target) };
 }
 
-export async function metricSeries(key: MetricKey, days = 90): Promise<Point[]> {
+export async function metricSeries(key: SourceKey, days = 90): Promise<Point[]> {
   const { text } = metricSql(key);
   const { rows } = await pool.query(text, [days]);
+  return rows.map((r) => ({ day: r.day as string, value: Number(r.value) }));
+}
+
+export async function halfSeries(): Promise<Point[]> {
+  const { rows } = await pool.query(
+    `select ${D("day")} as day, seconds as value from garmin.race_prediction where distance = 'half_marathon' order by day`,
+  );
   return rows.map((r) => ({ day: r.day as string, value: Number(r.value) }));
 }
