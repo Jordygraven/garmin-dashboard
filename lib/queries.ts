@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { metricSql, type MetricKey } from "./metricSource";
 import type { Point } from "./plateau";
 
 const D = (col: string) => `to_char(${col}, 'YYYY-MM-DD')`;
@@ -60,15 +61,20 @@ export async function unresolvedDrop() {
   return (rows[0] as { message: string } | undefined) ?? null;
 }
 
-export async function goals() {
-  const { rows } = await pool.query("select id, label, distance, target_seconds from garmin.goal order by due_date");
-  return rows.map((r) => ({ id: r.id as number, label: r.label as string, distance: r.distance, target: Number(r.target_seconds) }));
+/** First and latest half-marathon prediction plus the April goal, for the progress bar. */
+export async function halfMarathon() {
+  const { rows } = await pool.query(
+    `select (select seconds from garmin.race_prediction where distance = 'half_marathon' order by day asc limit 1) as start,
+            (select seconds from garmin.race_prediction where distance = 'half_marathon' order by day desc limit 1) as current,
+            (select target_seconds from garmin.goal where id = 'half-marathon-april') as target`,
+  );
+  const r = rows[0];
+  if (!r || r.start === null || r.current === null || r.target === null) return null;
+  return { start: Number(r.start), current: Number(r.current), target: Number(r.target) };
 }
 
-export async function predictions(distance: unknown) {
-  const { rows } = await pool.query(
-    `select ${D("day")} as day, seconds from garmin.race_prediction where distance = $1 order by day`,
-    [distance],
-  );
-  return rows.map((r) => ({ day: r.day as string, seconds: Number(r.seconds) }));
+export async function metricSeries(key: MetricKey, days = 90): Promise<Point[]> {
+  const { text } = metricSql(key);
+  const { rows } = await pool.query(text, [days]);
+  return rows.map((r) => ({ day: r.day as string, value: Number(r.value) }));
 }

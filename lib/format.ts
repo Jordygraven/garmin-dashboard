@@ -10,8 +10,6 @@ export function hms(sec: number) {
   return h ? `${h}:${mm}:${rr}` : `${m}:${rr}`;
 }
 
-export const signedHms = (sec: number) => `${sec < 0 ? "−" : "+"}${hms(sec)}`;
-
 export function shortDay(iso: string) {
   const [, m, d] = iso.split("-").map(Number);
   return `${d} ${MONTHS[m - 1]}`;

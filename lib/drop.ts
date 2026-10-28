@@ -22,5 +22,11 @@ export function dropCheck(alert: { message: string } | null, change: number | nu
   if (change === null) return { state: "none", text: "Not enough history yet." };
   const pct = Math.round(Math.abs(change) * 100);
   const up = change >= 0;
-  return { state: "ok", up, text: `No drop. Fitness is ${up ? "up" : "down"} ${pct}%.` };
+  return { state: "ok", up, text: `Stable: ${up ? "up" : "down"} ${pct}% in 14 days. Warning at ${Math.abs(DROP_THRESHOLD) * 100}%.` };
+}
+
+/** Latest ctl vs the value 14 days earlier. */
+export function trendLabel(change: number | null): { word: "Increasing" | "Decreasing"; arrow: "↑" | "↓" } | null {
+  if (change === null) return null;
+  return change >= 0 ? { word: "Increasing", arrow: "↑" } : { word: "Decreasing", arrow: "↓" };
 }

@@ -1,30 +1,39 @@
-import Spark from "@/components/Spark";
+import HomeMetrics, { type Metric } from "@/components/HomeMetrics";
 import SyncButton from "@/components/SyncButton";
-import { changeOver } from "@/lib/drop";
+import { changeOver, trendLabel } from "@/lib/drop";
 import { dash, syncedLabel, todayHeader } from "@/lib/format";
-import { ctlSeries, lastSynced, latestDaily, latestReadiness, latestSnapshot } from "@/lib/queries";
+import { lastSynced, latestDaily, latestReadiness, latestSnapshot, metricSeries } from "@/lib/queries";
+import type { MetricKey } from "@/lib/metricSource";
 import { levelOf, phraseFor, readinessLabel, STEPS } from "@/lib/verdict";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [daily, synced, readiness, snap, ctl] = await Promise.all([
-    latestDaily(), lastSynced(), latestReadiness(), latestSnapshot(), ctlSeries(30),
+  const keys: MetricKey[] = ["readiness", "fitness", "bodyBattery", "restingHr", "stress", "sleep", "hrv", "fitnessAge", "vo2"];
+  const [daily, synced, readiness, snap, ...all] = await Promise.all([
+    latestDaily(), lastSynced(), latestReadiness(), latestSnapshot(), ...keys.map((k) => metricSeries(k)),
   ]);
+  const series = Object.fromEntries(keys.map((k, i) => [k, all[i]])) as Record<MetricKey, (typeof all)[number]>;
   const level = levelOf(readiness);
   const [head, sub] = phraseFor(level);
   const accent = STEPS.find((s) => s.key === level)?.color ?? "#2a3530";
-  const change = changeOver(ctl);
-  const trend = change === null ? null : change > 0.02 ? "Increasing" : change < -0.02 ? "Decreasing" : "Steady";
-  const trendColor = trend === "Decreasing" ? "#d9534f" : "#8fd18a";
-  const last = ctl[ctl.length - 1];
-  const tiles: [string, string][] = [
-    ["Sleep score", dash(daily?.sleep_score)],
-    ["HRV", dash(daily?.hrv)],
-    ["Body battery", daily?.bb_charged != null || daily?.bb_drained != null ? `+${dash(daily?.bb_charged)} / −${dash(daily?.bb_drained)}` : "–"],
-    ["Resting HR", daily?.resting_hr != null ? `${daily.resting_hr} bpm` : "–"],
-    ["Stress", dash(daily?.stress)],
+  const change = changeOver(series.fitness);
+  const trend = trendLabel(change);
+  const last = series.fitness[series.fitness.length - 1];
+  const bb = daily?.bb_charged != null || daily?.bb_drained != null;
+  const tile = (key: MetricKey, label: string, value: string, sub?: string): Metric => ({ key, label, value, sub, series: series[key] });
+  const tiles = [
+    tile("readiness", "Training readiness", readinessLabel(readiness)),
+    tile("fitness", "Fitness", last ? String(Math.round(last.value)) : "–",
+      change === null || !trend ? undefined : `${trend.arrow} ${change >= 0 ? "+" : "−"}${Math.round(Math.abs(change) * 100)}% in 14 days`),
+    tile("bodyBattery", "Body battery", bb ? `+${dash(daily?.bb_charged)} / −${dash(daily?.bb_drained)}` : "–"),
+    tile("restingHr", "Resting HR", daily?.resting_hr != null ? `${daily.resting_hr} bpm` : "–"),
+    tile("stress", "Stress", dash(daily?.stress)),
+    tile("sleep", "Sleep score", dash(daily?.sleep_score)),
+    tile("hrv", "HRV", dash(daily?.hrv)),
+    tile("fitnessAge", "Fitness age", dash(daily?.fitness_age)),
   ];
+  const headline = tile("vo2", "VO2 max", dash(snap?.vo2));
 
   return (
     <main className="page">
@@ -49,43 +58,7 @@ export default async function Home() {
           ))}
         </div>
       </div>
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <div className="label">Fitness</div>
-          {trend && <div style={{ fontSize: 13, color: trendColor }}>{trend}</div>}
-        </div>
-        {last ? (
-          <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 6 }}>
-              <div style={{ fontSize: 40, fontWeight: 600 }}>{Math.round(last.value)}</div>
-              {change !== null && (
-                <div style={{ fontSize: 14, color: "#9aa8a0" }}>
-                  {change >= 0 ? "+" : "−"}{Math.round(Math.abs(change) * 100)}% in 14 days
-                </div>
-              )}
-            </div>
-            <Spark points={ctl} />
-          </>
-        ) : (
-          <div style={{ fontSize: 16, color: "#9aa8a0", marginTop: 10 }}>Waiting for data</div>
-        )}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 }}>
-        {tiles.map(([k, v]) => (
-          <div className="tile" key={k}>
-            <div style={{ fontSize: 12, color: "#7d8c83" }}>{k}</div>
-            <div style={{ fontSize: 26, fontWeight: 600, marginTop: 6 }}>{v}</div>
-          </div>
-        ))}
-        <div className="tile">
-          <div style={{ fontSize: 12, color: "#7d8c83" }}>Fitness age</div>
-          <div style={{ fontSize: 18, fontWeight: 600, marginTop: 10, color: "#9aa8a0" }}>{dash(daily?.fitness_age)}</div>
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#9aa8a0", padding: "0 4px" }}>
-        <span>VO2 max <span style={{ color: "#eef3ef" }}>{dash(snap?.vo2)}</span></span>
-        <span>Readiness <span style={{ color: "#eef3ef" }}>{readinessLabel(readiness)}</span></span>
-      </div>
+      <HomeMetrics headline={headline} tiles={tiles} />
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
         <SyncButton />
         <a href="/trends" style={{ textAlign: "center", fontSize: 14, color: "#9aa8a0", textDecoration: "none" }}>Trends →</a>

@@ -4,7 +4,7 @@ import { findPlateaus, type Point } from "@/lib/plateau";
 
 const W = 330, AXIS = 140, TOP = 18, BOT = 128, XR = 326, LOW_Y = AXIS + 14, TICK_Y = 168;
 
-export default function FitnessChart({ points }: { points: Point[] }) {
+export default function FitnessChart({ points, label = "Fitness", plateaus = true }: { points: Point[]; label?: string; plateaus?: boolean }) {
   const n = points.length;
   const vals = points.map((p) => p.value);
   const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
@@ -18,8 +18,8 @@ export default function FitnessChart({ points }: { points: Point[] }) {
   const peakBox = textBox(peakX, "middle", peakText);
 
   return (
-    <svg viewBox={`0 0 ${W} 170`} style={{ width: "100%", height: 170, marginTop: 10 }} role="img" aria-label="Fitness over time">
-      {findPlateaus(points).map((s) => (
+    <svg viewBox={`0 0 ${W} 170`} style={{ width: "100%", height: 170, marginTop: 10 }} role="img" aria-label={`${label} over time`}>
+      {(plateaus ? findPlateaus(points) : []).map((s) => (
         <g key={s.start}>
           <rect x={x(s.start)} y={0} width={x(s.end) - x(s.start)} height={AXIS} fill="#2f8f5b" opacity="0.1" />
           {hi !== lo && !overlaps(textBox((x(s.start) + x(s.end)) / 2, "middle", "Plateau"), peakBox, 6) && (
