@@ -35,7 +35,6 @@ export default async function Goals() {
           <>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 }}>
               <div style={{ fontSize: 30, fontWeight: 600 }}>{hms(half.current)}</div>
-              <div style={{ fontSize: 14, color: "#9aa8a0" }}>{Math.round(pct)}%</div>
             </div>
             <div style={{ height: 6, borderRadius: 3, background: "#222b26", marginTop: 16 }}>
               <div style={{ height: 6, width: `${pct}%`, borderRadius: 3, background: "#9aa8a0" }} />

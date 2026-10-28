@@ -60,8 +60,8 @@ export default async function Home() {
       </div>
       <HomeMetrics headline={headline} tiles={tiles} />
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
+        <a href="/goals" className="btn btn-primary">Goals</a>
         <SyncButton />
-        <a href="/goals" style={{ textAlign: "center", fontSize: 14, color: "#9aa8a0", textDecoration: "none" }}>Goals →</a>
       </div>
     </main>
   );
