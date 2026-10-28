@@ -39,10 +39,7 @@ export default async function Goals() {
             <div style={{ height: 6, borderRadius: 3, background: "#222b26", marginTop: 16 }}>
               <div style={{ height: 6, width: `${pct}%`, borderRadius: 3, background: "#9aa8a0" }} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#7d8c83", marginTop: 8 }}>
-              <span>Predicted pace {paceLabel(half.current)}</span>
-              <span>Target pace {paceLabel(half.target)}</span>
-            </div>
+            <div style={{ fontSize: 12, color: "#7d8c83", marginTop: 8 }}>Target pace {paceLabel(half.target)}</div>
             {preds.length >= 2 ? (
               <FitnessChart points={preds} label="Half marathon prediction" plateaus={false} target={half.target} targetLabel="sub 1:30" invert format={hms} />
             ) : (
