@@ -66,11 +66,12 @@ export async function halfMarathon() {
   const { rows } = await pool.query(
     `select (select seconds from garmin.race_prediction where distance = 'half_marathon' order by day asc limit 1) as start,
             (select seconds from garmin.race_prediction where distance = 'half_marathon' order by day desc limit 1) as current,
-            (select target_seconds from garmin.goal where id = 'half-marathon-april') as target`,
+            (select target_seconds from garmin.goal where id = 'half-marathon-april') as target,
+            (select to_char(due_date, 'YYYY-MM-DD') from garmin.goal where id = 'half-marathon-april') as due`,
   );
   const r = rows[0];
   if (!r || r.start === null || r.current === null || r.target === null) return null;
-  return { start: Number(r.start), current: Number(r.current), target: Number(r.target) };
+  return { start: Number(r.start), current: Number(r.current), target: Number(r.target), due: (r.due as string | null) ?? undefined };
 }
 
 export async function metricSeries(key: SourceKey, days = 90): Promise<Point[]> {

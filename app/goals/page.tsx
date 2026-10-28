@@ -49,7 +49,7 @@ export default async function Goals() {
             ) : (
               <div style={{ ...muted, marginTop: 16 }}>Building history</div>
             )}
-            <div style={{ fontSize: 16, marginTop: 12 }}>{projectionText(projectGoal(preds, half.target))}</div>
+            <div style={{ fontSize: 16, marginTop: 12 }}>{projectionText(projectGoal(preds, half.target, half.due))}</div>
             <div style={{ ...muted, fontSize: 12, marginTop: 4 }}>This will compare with your training plan once we add it.</div>
             <div style={{ ...muted, marginTop: 8 }}>{GOAL_INFO.halfMarathon}</div>
           </>

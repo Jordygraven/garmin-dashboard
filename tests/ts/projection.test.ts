@@ -10,6 +10,8 @@ const line = (n: number, start: number, slope: number): Point[] =>
     value: start + slope * i,
   }));
 
+const DUE = "2027-04-03";
+
 describe("projectGoal", () => {
   it("needs 14 predictions", () => {
     const r = projectGoal(line(13, 5700, -1));
@@ -24,16 +26,20 @@ describe("projectGoal", () => {
   it("rising trend", () => {
     expect(projectGoal(line(20, 5700, 3))).toEqual({ state: "flat" });
   });
-  it("falling trend that reaches 5400", () => {
+  it("falling trend that reaches 5400 before the due date", () => {
     // 20 points, last = 5700 - 19*5 = 5605; -5 s/day reaches 5400 at i = 60 -> 41 days after 2026-10-28
-    const r = projectGoal(line(20, 5700, -5));
+    const r = projectGoal(line(20, 5700, -5), 5400, DUE);
     expect(r).toEqual({ state: "reaches", date: "2026-12-08" });
     expect(projectionText(r)).toBe("On this trend: sub 1:30 by 8 Dec");
   });
-  it("falling trend that does not reach 5400 within a year", () => {
-    const r = projectGoal(line(20, 5700, -0.1));
-    expect(r).toEqual({ state: "far" });
-    expect(projectionText(r)).toBe("On this trend: not sub 1:30 within a year");
+  it("falling trend that reaches 5400 after the due date", () => {
+    const r = projectGoal(line(20, 5700, -0.1), 5400, DUE);
+    expect(r).toEqual({ state: "far", due: DUE });
+    expect(projectionText(r)).toBe("On this trend: not sub 1:30 by 3 Apr 2027");
+  });
+  it("counts the due date itself as in time", () => {
+    expect(projectGoal(line(20, 5700, -5), 5400, "2026-12-08")).toEqual({ state: "reaches", date: "2026-12-08" });
+    expect(projectGoal(line(20, 5700, -5), 5400, "2026-12-07")).toMatchObject({ state: "far" });
   });
   it("only fits the last 28 days", () => {
     const old = line(10, 9000, 50).map((p) => ({ ...p, day: "2026-08-" + String(10 + Number(p.day.slice(-2)) % 10).padStart(2, "0") }));
