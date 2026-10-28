@@ -35,7 +35,9 @@ export async function latestReadiness() {
 
 export async function latestSnapshot() {
   const { rows } = await pool.query(
-    "select vo2_max, vo2_max_precise, load_ratio from garmin.training_snapshot order by day desc limit 1",
+    `select (select vo2_max_precise from garmin.training_snapshot where vo2_max_precise is not null order by day desc limit 1) as vo2_max_precise,
+            (select vo2_max from garmin.training_snapshot where vo2_max is not null order by day desc limit 1) as vo2_max,
+            (select load_ratio from garmin.training_snapshot order by day desc limit 1) as load_ratio`,
   );
   const r = rows[0];
   return r ? { vo2: num(r.vo2_max_precise) ?? num(r.vo2_max), load_ratio: num(r.load_ratio) } : null;

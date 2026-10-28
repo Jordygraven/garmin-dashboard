@@ -192,7 +192,7 @@ def training_status_fields(data, day):
         }
         break
     g = ((data.get("mostRecentVO2Max") or {}).get("generic")) or {}
-    if g and g.get("calendarDate") in (None, day.isoformat()):
+    if g:  # latest record may be from an earlier day; stored on the day fetched
         out["vo2_max"], out["vo2_max_precise"] = g.get("vo2MaxValue"), g.get("vo2MaxPreciseValue")
     return out
 
@@ -299,6 +299,8 @@ def sync_snapshot(client, conn, day, run):
     """Fetch and upsert one training_snapshot row. Returns the load source (garmin|ewma|none)."""
     d = day.isoformat()
     vo2 = vo2_from_max_metrics(run.call(day, "max_metrics", lambda: client.get_max_metrics(d)))
+    if vo2 == (None, None):  # daily endpoint only has a record when Garmin recalculates
+        vo2 = vo2_from_max_metrics(run.call(day, "max_metrics_latest", lambda: client.get_max_metrics_latest(d)))
     status = training_status_fields(run.call(day, "training_status", lambda: client.get_training_status(d)), day)
     snap, source = build_snapshot(day, vo2, status, conn)
     if any(snap[c] is not None for c in SNAPSHOT_COLS):
