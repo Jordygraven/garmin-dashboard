@@ -5,7 +5,7 @@ import FitnessChart from "@/components/FitnessChart";
 import { METRIC_INFO } from "@/lib/metricInfo";
 import type { MetricKey } from "@/lib/metricSource";
 import type { Point } from "@/lib/plateau";
-import { bodyBatteryBars, movingAvg, windowPoints, type Days } from "@/lib/series";
+import { barAverages, bodyBatteryBars, movingAvg, windowPoints, type Days } from "@/lib/series";
 
 export type Metric = { key: MetricKey; label: string; value: string; sub?: string; series: Point[]; drained?: Point[] };
 
@@ -19,7 +19,11 @@ export default function HomeMetrics({ headline, tiles }: { headline: Metric; til
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, [open]);
-  const netToday = open?.key === "bodyBattery" ? bodyBatteryBars(open.series, open.drained ?? []).at(-1) : undefined;
+  const bbBars = open?.key === "bodyBattery"
+    ? bodyBatteryBars(windowPoints(open.series, days), windowPoints(open.drained ?? [], days)) : [];
+  const bbAvg = barAverages(bbBars);
+  const bbNet = open?.key === "bodyBattery" ? bodyBatteryBars(open.series, open.drained ?? []).at(-1)?.net : undefined;
+  const signed = (v: number) => `${v >= 0 ? "+" : "−"}${Math.round(Math.abs(v))}`;
   return (
     <>
       <button onClick={() => show(headline)} style={{ background: "none", border: 0, color: "inherit", textAlign: "center", padding: 0, cursor: "pointer" }}>
@@ -59,9 +63,8 @@ export default function HomeMetrics({ headline, tiles }: { headline: Metric; til
             {open.series.length ? (
               open.key === "bodyBattery" ? (
                 <BarChart
-                  bars={bodyBatteryBars(windowPoints(open.series, days), windowPoints(open.drained ?? [], days))}
-                  avgCharged={windowPoints(movingAvg(open.series), days)}
-                  avgDrained={windowPoints(movingAvg(open.drained ?? []), days)}
+                  bars={bbBars}
+                  avg={windowPoints(movingAvg(bodyBatteryBars(open.series, open.drained ?? []).map((b) => ({ day: b.day, value: b.net }))), days)}
                 />
               ) : (
                 <FitnessChart
@@ -76,7 +79,7 @@ export default function HomeMetrics({ headline, tiles }: { headline: Metric; til
             )}
             <div style={{ fontSize: 14, color: "#9aa8a0", lineHeight: 1.5, marginTop: 8 }}>
               {METRIC_INFO[open.key].text}
-              {netToday && ` Latest net: ${netToday.net >= 0 ? "+" : "−"}${Math.round(Math.abs(netToday.net))}.`}
+              {bbNet !== undefined && ` Average charged ${Math.round(bbAvg.charged)} and average drained ${Math.round(bbAvg.drained)} over ${days} days. Latest net: ${signed(bbNet)}.`}
             </div>
           </div>
         </div>

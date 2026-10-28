@@ -8,3 +8,4 @@ body { font-family: system-ui, -apple-system, sans-serif; letter-spacing: -0.01e
 .btn { width: 100%; min-height: 52px; border-radius: 16px; border: 1px solid #2a3530; background: transparent; color: #eef3ef; font-size: 15px; }
 .input { width: 100%; min-height: 52px; border-radius: 16px; border: 1px solid #2a3530; background: #141a17; color: #eef3ef; font-size: 16px; padding: 0 16px; }
 a { color: inherit; }
+details[open] .when-closed, details:not([open]) .when-open { display: none; }

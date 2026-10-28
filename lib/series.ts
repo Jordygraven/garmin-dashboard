@@ -30,3 +30,14 @@ export function bodyBatteryBars(charged: Point[], drained: Point[]): Bar[] {
     return { day, charged: up, drained: down, net: up - down };
   });
 }
+
+/** Bar geometry relative to the zero line: positive net goes up (green), negative down (red). */
+export function netBarGeom(net: number, max: number, half: number) {
+  const height = Math.abs(net) / (max || 1) * half;
+  return net >= 0 ? { top: -height, height, color: "#2f8f5b" } : { top: 0, height, color: "#d9534f" };
+}
+
+export function barAverages(bars: Bar[]) {
+  const mean = (f: (b: Bar) => number) => (bars.length ? bars.reduce((a, b) => a + f(b), 0) / bars.length : 0);
+  return { charged: mean((b) => b.charged), drained: mean((b) => b.drained) };
+}

@@ -4,6 +4,7 @@ import { hms } from "@/lib/format";
 import { LOAD_HIGH, LOAD_LOW, LOAD_SCALE, loadColor, loadZone, type LoadZone } from "@/lib/loadRatio";
 import { GOAL_INFO, LOAD_ZONE_INFO, METRIC_INFO } from "@/lib/metricInfo";
 import { paceLabel } from "@/lib/pace";
+import { projectGoal, projectionText } from "@/lib/projection";
 import { progressPct } from "@/lib/progress";
 import { halfMarathon, halfSeries, metricSeries, unresolvedDrop } from "@/lib/queries";
 
@@ -44,10 +45,12 @@ export default async function Goals() {
               <span>Target pace {paceLabel(half.target)}</span>
             </div>
             {preds.length >= 2 ? (
-              <FitnessChart points={preds} label="Half marathon prediction" plateaus={false} target={half.target} format={hms} />
+              <FitnessChart points={preds} label="Half marathon prediction" plateaus={false} target={half.target} targetLabel="sub 1:30" invert format={hms} />
             ) : (
               <div style={{ ...muted, marginTop: 16 }}>Building history</div>
             )}
+            <div style={{ fontSize: 16, marginTop: 12 }}>{projectionText(projectGoal(preds, half.target))}</div>
+            <div style={{ ...muted, fontSize: 12, marginTop: 4 }}>This will compare with your training plan once we add it.</div>
             <div style={{ ...muted, marginTop: 8 }}>{GOAL_INFO.halfMarathon}</div>
           </>
         ) : (
@@ -76,12 +79,20 @@ export default async function Goals() {
               <span>0</span><span>2.0</span>
             </div>
             <FitnessChart points={load} label="Load ratio" plateaus={false} zone={[LOAD_LOW, LOAD_HIGH]} format={(v) => v.toFixed(2)} />
-            <div style={{ ...muted, marginTop: 8 }}>{GOAL_INFO.loadRatio}</div>
-            {(["Low", "Good", "High"] as LoadZone[]).map((z) => (
-              <div key={z} style={{ ...muted, marginTop: 8, color: z === zone ? "#eef3ef" : "#7d8c83" }}>
-                <b>{LOAD_ZONE_INFO[z].range}:</b> {LOAD_ZONE_INFO[z].text}
-              </div>
-            ))}
+            <div style={{ ...muted, marginTop: 8, color: "#eef3ef" }}>
+              <b>{LOAD_ZONE_INFO[zone].range}: {zone}</b>
+            </div>
+            <details style={{ marginTop: 4 }}>
+              <summary style={{ ...muted, cursor: "pointer" }}>
+                <span className="when-closed">Show more</span><span className="when-open">Show less</span>
+              </summary>
+              <div style={{ ...muted, marginTop: 4 }}>{GOAL_INFO.loadRatio}</div>
+              {(["Low", "Good", "High"] as LoadZone[]).map((z) => (
+                <div key={z} style={{ ...muted, marginTop: 8, color: z === zone ? "#eef3ef" : "#7d8c83" }}>
+                  <b>{LOAD_ZONE_INFO[z].range}:</b> {LOAD_ZONE_INFO[z].text}
+                </div>
+              ))}
+            </details>
           </>
         )}
       </div>

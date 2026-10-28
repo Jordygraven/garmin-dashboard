@@ -17,7 +17,7 @@ export const METRIC_INFO: Record<MetricKey, { title: string; text: string }> = {
   },
   bodyBattery: {
     title: "Body battery",
-    text: "Garmin's energy reserve from 0 to 100. Green bars are charged: what you gained, mostly from sleep and rest. Red bars are drained: what you spent through activity and stress. Net for the day is charged minus drained.",
+    text: "Garmin's energy reserve from 0 to 100. Charged is what you gained, mostly from sleep and rest. Drained is what you spent through activity and stress. Each bar is the net for the day: charged minus drained. Green above the line means you gained more than you spent, red below means you spent more.",
   },
   restingHr: {
     title: "Resting HR",
