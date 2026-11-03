@@ -44,7 +44,7 @@ export default function HomeMetrics({ headline, tiles }: { headline: Metric; til
         <div onClick={() => setOpen(null)} style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 10,
         }}>
-          <div role="dialog" aria-modal="true" aria-label={METRIC_INFO[open.key].title} className="card"
+          <div role="dialog" aria-modal="true" aria-label={METRIC_INFO[open.key].title} className="card modal"
             onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 400, maxHeight: "90dvh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <div className="label">{METRIC_INFO[open.key].title}</div>
