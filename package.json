@@ -8,6 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "jordy-ui": "github:Jordygraven/jordy-design-system#v0.0.3",
     "next": "^16.4.3",
     "pg": "^8.23.1",
     "react": "^19.3.1",

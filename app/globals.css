@@ -1,21 +1,4 @@
-:root {
-  --background: #0a0f1e;
-  --foreground: #f4f7ff;
-  --primary: #2dd4bf;
-  --primary-foreground: #0a0f1e;
-  --ring: #5eead4;
-  --card: rgb(255 255 255 / 0.08);
-  --card-foreground: #f4f7ff;
-  --popover: #111833;
-  --popover-foreground: #f4f7ff;
-  --muted: rgb(255 255 255 / 0.1);
-  --muted-foreground: rgb(244 247 255 / 0.78);
-  --border: rgb(255 255 255 / 0.16);
-  --input: rgb(255 255 255 / 0.18);
-  --radius: 0.625rem;
-  --glass-border: rgb(255 255 255 / 0.16);
-  --glass-highlight: rgb(255 255 255 / 0.12);
-}
+@import "../node_modules/jordy-ui/dist/tokens.css";
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--background); color: var(--foreground); color-scheme: dark; }
