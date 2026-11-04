@@ -1,0 +1,28 @@
+name: Weekly PR reminder
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List open PRs and notify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          REPO: ${{ github.repository }}
+        run: |
+          prs=$(gh pr list --repo "$REPO" --state open --json number,title,url --jq '.[] | "#\(.number) \(.title)\n\(.url)"')
+          if [ -z "$prs" ]; then
+            msg="$REPO: no open PRs to review."
+          else
+            msg="$REPO: open PRs to review:
+          $prs"
+          fi
+          curl -sS -H "Title: Weekly PR review" -d "$msg" "https://ntfy.sh/$NTFY_TOPIC"
