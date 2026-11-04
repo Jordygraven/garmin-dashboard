@@ -1,0 +1,41 @@
+name: Dependabot auto-merge
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Wait for build, then merge
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          for i in $(seq 1 60)
+          do
+            RESULTS=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '[.check_runs[] | select(.name == "build") | (.conclusion // "pending")]')
+            if echo "$RESULTS" | grep -q failure
+            then
+              echo "Build failed. Not merging."
+              exit 1
+            fi
+            if echo "$RESULTS" | grep -q success
+            then
+              gh pr merge "$PR_URL" --squash
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "Build did not finish in time. Not merging."
+          exit 1
