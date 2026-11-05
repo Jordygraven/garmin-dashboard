@@ -5,37 +5,58 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 jobs:
   auto-merge:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      REQUIRED_CHECK: build
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-      - name: Wait for build, then merge
-        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      - name: Notify major update
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: |
+          curl -sS -H "Title: Major update to review" -H "Priority: high" -d "$PR_URL" "https://ntfy.sh/$NTFY_TOPIC"
+      - name: Wait for check, then merge or request rebase
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          result="pending"
           for i in $(seq 1 60)
           do
-            RESULTS=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '[.check_runs[] | select(.name == "build") | (.conclusion // "pending")]')
-            if echo "$RESULTS" | grep -q failure
+            RESULTS=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" | jq -r --arg name "$REQUIRED_CHECK" '[.check_runs[] | select(.name == $name) | (.conclusion // "pending")] | join(",")')
+            if echo "$RESULTS" | grep -qE 'failure|cancelled|timed_out'
             then
-              echo "Build failed. Not merging."
-              exit 1
+              result="failed"
+              break
             fi
             if echo "$RESULTS" | grep -q success
             then
-              gh pr merge "$PR_URL" --squash
-              exit 0
+              result="passed"
+              break
             fi
             sleep 30
           done
-          echo "Build did not finish in time. Not merging."
+          if [ "$result" = "passed" ] && gh pr merge "$PR_URL" --squash
+          then
+            curl -sS -H "Title: Auto-merged" -d "Merged: $PR_URL" "https://ntfy.sh/$NTFY_TOPIC"
+            exit 0
+          fi
+          rebases=$(gh pr view "$PR_URL" --json comments --jq '[.comments[].body | select(contains("@dependabot rebase"))] | length')
+          if [ "$rebases" = "0" ]
+          then
+            gh pr comment "$PR_URL" --body "@dependabot rebase"
+            msg="Auto-merge failed. Rebase requested: $PR_URL"
+          else
+            msg="Auto-merge failed again after rebase. Check manually: $PR_URL"
+          fi
+          curl -sS -H "Title: Auto-merge failed" -H "Priority: high" -d "$msg" "https://ntfy.sh/$NTFY_TOPIC"
           exit 1
